@@ -1361,7 +1361,7 @@ class Bowser():
         damage_text = DamageText(target.rect.centerx, target.rect.y + 150, str(damage), red)
         damage_text_group.add(damage_text)
         #set variables to attack animation
-        self.animation_cooldown = 50
+        self.animation_cooldown = 40
         self.action = 2
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
@@ -2685,15 +2685,15 @@ while run:
                                     if spinPunchFire == 0:
                                         enemy.firebreath(mario)
                                         current_fighter += 1
-                                        action_cooldown = -30
+                                        action_cooldown = -50
                                     elif spinPunchFire == 1:
                                         enemy.punch(mario)
                                         current_fighter += 1
-                                        action_cooldown = -30
+                                        action_cooldown = -100
                                     elif spinPunchFire == 2:
                                         enemy.spin(mario)
                                         current_fighter += 1
-                                        action_cooldown = -30
+                                        action_cooldown = -40
                         else:
                             if spinPunchFire == 0:
                                 enemy.firebreath(mario)
