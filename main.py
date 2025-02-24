@@ -262,8 +262,8 @@ play_button = Button(play_button_img, 400, 500)
 info_button = Button(info_button_img, 400, 200)
 back_button = Button(back_button_img, 950, 700)
 next_button = Button(next_button_img, 950, 700)
-level2_button = Button(level2_button_img, 400, 200)
-retry_button = Button(retry_button_img, 800, 200)
+level2_button = Button(level2_button_img, 500, 110)
+retry_button = Button(retry_button_img, 500, 70)
 jump_button = Button(jump_button_img, 450, 600)
 hammer_button = Button(hammer_button_img, 550, 600)
 spin_button = Button(spin_button_img, 450, 700)
@@ -271,11 +271,11 @@ fire_button = Button(fire_button_img, 550, 700)
 mush_button = Button(mushroom_button_img, 650, 600)
 syrup_button = Button(syrup_button_img, 650, 700)
 super_mush_button = Button(super_mushroom_button_img, 750, 650)
-back_to_menu_button = Button(back_button_img, 400, 200)
-
+back_to_menu_button = Button(back_button_img, 500, 170)
 
 target = None
-game_screen = "menu"
+game_screen = "disclaimer"
+
 
 def change_music(soundtrack):
     mixer.music.load(f'music/{soundtrack}.mp3')
@@ -285,6 +285,20 @@ def change_music(soundtrack):
 # Set the initial soundtrack when the game starts
 soundtrack = "wonderTitleScreen"
 change_music(soundtrack)
+
+def disclaimer():
+    draw_text("DISCLAIMER:", titleFont, white, 90, 60)
+    draw_text("This is a non-profit fan project  ", titleFont, white, 90, 110)
+    draw_text("This is primarily used to showcase ", titleFont, white, 90, 170)
+    draw_text("my development skills to possible ", titleFont, white, 90, 230)
+    draw_text("employers while also being a fun", titleFont, white, 90, 290) 
+    draw_text("project i decided to do to challenge myself.", titleFont, white, 90, 350)
+    draw_text("All rights, assets, characters, and music", titleFont, white, 90, 410)
+    draw_text("belong to Nintendo", titleFont, white, 90, 470)
+    draw_text("P.S. To Any Employers, Yes I know I am not", titleFont, white, 90, 530)
+    draw_text("too great with animations, but hopefully", titleFont, white, 90, 590)
+    draw_text("the functionality makes up for it!", titleFont, white, 90, 650)
+    draw_text("Please enjoy!", titleFont, white, 90, 710)
 
 def information():
     draw_text("Jump - Does Between 5 and 15 Damage", titleFont, green, 140, 60)
@@ -483,13 +497,20 @@ while run:
             win.play()
             winPlayed = True
         
-
+    if game_screen == "disclaimer":
+        draw_mainmenu()
+        disclaimer()
+        next_button.draw(screen)
+        if next_button.is_clicked(pos) and clicked == True:
+                game_screen = "menu"
+                clicked = False
+                
     if game_screen == "menu":
         #reset_all_levels()
         draw_mainmenu()
         info_button.draw(screen)
         play_button.draw(screen)
-        draw_text("Welcome to The Demo!", titleFont, green, 400, 0)
+        draw_text("Welcome to The Demo!", titleFont, white, 300, 0)
 
         if info_button.is_clicked(pos) and clicked == True:
             game_screen = "info"
@@ -497,13 +518,11 @@ while run:
             next_button.draw(screen)
 
         if play_button.is_clicked(pos) and clicked == True and game_screen == "menu":
-            print("Transitioning to Level 1")
             game_screen = "level1"
             mixer.music.stop()  # Stop the menu music
             soundtrack = "battle"  # Change to the new soundtrack for the level
             change_music(soundtrack)  # Load and play the new music
             clicked = False
-            reset_level(enemy_list_lvl1)  # Reset the level
 
     elif game_screen == "info":
         draw_mainmenu()
