@@ -1,0 +1,754 @@
+import pygame
+import random
+import tkinter as tk
+import pyglet
+
+#import custom font
+fontName = "fonts/SuperMario256.ttf"
+pyglet.font.add_file(f'{fontName}')
+
+#import music
+from pygame import mixer
+mixer.init()
+mixer.music.load('music/RPGBATTLE.mp3')
+mixer.music.set_volume(0.2)
+
+#initialize game
+pygame.init()
+
+clock = pygame.time.Clock()
+fps = 60
+
+#game window
+bottom_panel = 200
+screen_width = 1200
+screen_height = 600 + bottom_panel
+
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption('Battle')
+
+#define game variables
+current_fighter = 1
+total_fighters = 2
+action_cooldown = 0
+action_wait = 90
+attack = False
+jump = False
+hammer = False
+spin = False
+fire = False
+mushroom = False
+mushroom_effect = 25
+syrup = False
+syrup_effect = 10
+clicked = False
+
+#define fonts
+font = pygame.font.Font(fontName, 26)
+
+#define colours
+red = (255, 0, 0)
+green = (0, 255, 0)
+
+#load images
+#background images
+background_img = pygame.image.load('images/MLSSbeanbean.gif').convert_alpha()
+scaled_image = pygame.transform.scale(background_img, (screen_width, screen_height - bottom_panel))
+#panel image
+panel_img = pygame.image.load('images/Panel.png').convert_alpha()
+#mouse image
+mouse_img = pygame.image.load('images/hammer.png').convert_alpha()
+
+#create function for drawing text
+def draw_text(text, font, text_color, x, y):
+    img = font.render(text, True, text_color)
+    screen.blit(img, (x, y))
+#function for drawing background
+def draw_bg():
+    screen.blit(scaled_image, (0,0))
+
+#function for drawing panel
+def draw_panel():
+    #draw panel
+    screen.blit(panel_img, (0,600))
+    #show mario stats
+    draw_text(f'{mario.name} HP: {mario.hp}', font, red, 100, 600)
+    draw_text(f'{mario.name} FP: {mario.fp}', font, red, 100, 650)
+    #loop if multiple enemies
+    for count, enemy in enumerate(enemy_list):
+        #show name and health
+        draw_text(f'{enemy.name} HP: {enemy.hp}', font, red, 600, (600) + count * 60)
+
+class itemUse():
+    def __init__(self,x, y):
+        self.animation_list = []
+        self.frame_index = 0
+        self.action = 0#0:idle, 1:attack, 2:hurt, 3:dead
+        self.update_time = pygame.time.get_ticks()#Mario Class
+
+        temp_list = []
+        image = pygame.image.load(f'images/Empty/blank.png')
+        temp_list.append(image)
+        self.animation_list.append(temp_list)
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+        temp_list = []
+        for i in range (24):
+            image = pygame.image.load(f'images/Mario/Mushroom/Mushroom2/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+        temp_list = []
+        for i in range (24):
+            image = pygame.image.load(f'images/Mario/Syrup/Syrup2/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+    
+    def nothing(self):
+        #set variables to nothing when no item is used
+        self.action = 0
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def mushroom(self):
+        #set variables to syrup animation
+        self.action = 1
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def syrup(self):
+        #set variables to syrup animation
+        self.action = 2
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def update(self):
+        animation_cooldown = 90
+        #handle animation
+        #update image
+        self.image = self.animation_list[self.action][self.frame_index]
+        #check if enough time has passed since last update
+        if pygame.time.get_ticks() - self.update_time > animation_cooldown:
+            self.update_time = pygame.time.get_ticks()
+            self.frame_index += 1
+        #if the animation has run out then reset back to the start
+        if self.frame_index >= len(self.animation_list[self.action]):
+            self.nothing()
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
+class Mario():
+    def __init__(self, x, y, name, max_hp, max_fp, strength, mushrooms, syrups):
+        self.x = x
+        self.y = y
+        self.name = name
+        self.max_hp = max_hp
+        self.hp = max_hp
+        self.max_fp = max_fp
+        self.fp = max_fp
+        self.strength = strength
+        self.start_mushrooms = mushrooms
+        self.mushrooms = mushrooms
+        self.start_syrups = syrups
+        self.syrups = syrups
+        self.alive = True
+        self.animation_list = []
+        self.frame_index = 0
+        self.action = 0#0:idle, 1:attack, 2:hurt, 3:dead
+        self.update_time = pygame.time.get_ticks()
+        self.moving = False  # To track if Mario is currently moving
+        self.target_x = None
+        self.target_y = None  # Target position to move towards
+        self.returning = False  # To track if Mario is returning to his original position
+        self.original_x = self.x  # Store Mario's original position
+
+        
+        #load images for idle
+        temp_list = []
+        for i in range (8):
+            image = pygame.image.load(f'images/{self.name}/Idle/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        #load images for jump
+        temp_list = []
+        for i in range (9):
+            image = pygame.image.load(f'images/{self.name}/Jump/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+        #load images for hammer
+        temp_list = []
+        for i in range (10):
+            image = pygame.image.load(f'images/{self.name}/Hammer/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+        #load images for spin
+        temp_list = []
+        for i in range (24):
+            image = pygame.image.load(f'images/{self.name}/Spin/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+        #load images for fire
+        temp_list = []
+        for i in range (14):
+            image = pygame.image.load(f'images/{self.name}/Fire/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+        #load images for mushroom
+        temp_list = []
+        for i in range (35):
+            image = pygame.image.load(f'images/{self.name}/Mushroom/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+        #load images for syrup
+        temp_list = []
+        for i in range (35):
+            image = pygame.image.load(f'images/{self.name}/Syrup/{i}.png')
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+    
+    def idle(self):
+        #set variables to idle animation
+        self.action = 0
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def jump(self, target):
+        self.moving = True
+        self.target_x = target.rect.centerx
+        self.target_y = target.rect.centery - 30  # Adjust to increase jump height (subtract from target_y)
+        self.returning = False  # Not returning yet
+        self.jump_height = 20  # Set initial jump height
+        self.jump_direction = 1  # 1 = going up, -1 = coming down
+        # deal damage to enemy
+        rand = random.randint(-5, 5)
+        damage = self.strength + rand
+        target.hp -= damage
+        # check if target has died
+        if target.hp < 1:
+            target.hp = 0
+            target.alive = False
+        damage_text = DamageText(target.rect.centerx, target.rect.y, str(damage), red)
+        damage_text_group.add(damage_text)
+        # set variables to attack animation
+        self.action = 1
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+
+    def hammer(self, target):
+        # Set moving state and target position
+        self.moving = True
+        self.target_x = target.rect.centerx
+        self.returning = False  # Not returning yet
+        #deal damage to enemy
+        rand = random.randint(0, 10)
+        damage = self.strength + rand
+        target.hp -= damage
+        #check if target has died
+        if target.hp < 1:
+            target.hp = 0
+            target.alive = False
+        damage_text = DamageText(target.rect.centerx, target.rect.y, str(damage), red)
+        damage_text_group.add(damage_text)
+        #set variables to attack animation
+        self.action = 2
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def spin(self, target):
+        # Set moving state and target position
+        self.moving = True
+        self.target_x = target.rect.centerx
+        self.returning = False  # Not returning yet
+
+        #deal damage to enemy
+        rand = random.randint(0, 15)
+        damage = self.strength + rand
+        target.hp -= damage
+        #check if target has died
+        if target.hp < 1:
+            target.hp = 0
+            target.alive = False
+        damage_text = DamageText(target.rect.centerx, target.rect.y, str(damage), red)
+        damage_text_group.add(damage_text)
+        #set variables to attack animation
+        self.action = 3
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def fire(self, target):
+        #deal damage to enemy
+        rand = random.randint(0, 25)
+        damage = self.strength + rand
+        target.hp -= damage
+        #check if target has died
+        if target.hp < 1:
+            target.hp = 0
+            target.alive = False
+        damage_text = DamageText(target.rect.centerx, target.rect.y, str(damage), red)
+        damage_text_group.add(damage_text)
+        #set variables to attack animation
+        self.action = 4
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def mushroom(self):
+        self.action = 5
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+    
+    def syrup(self):
+        self.action = 6
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def update(self):
+        # Animation cooldown
+        animation_cooldown = 90
+
+        if self.moving:
+            # Check the horizontal distance to determine when to start jumping
+            remaining_x_distance = abs(self.x - self.target_x)
+
+            # Move horizontally towards the target x (for hammer or spin actions)
+            if self.action == 1 and not self.returning:
+                if remaining_x_distance > self.target_x / 3:  # If we're not in the last 1/3rd of the x distance
+                    self.x += 5 if self.x < self.target_x else -5  # Move horizontally towards target
+                else:  # When we reach the last 1/3rd of the x distance, start jumping
+                    if self.jump_direction == 1:  # Going up
+                        self.y -= self.jump_height
+                        if self.y <= self.target_y:  # When reaching peak
+                            self.jump_direction = -1  # Change direction to downward
+                    elif self.jump_direction == -1:  # Going down
+                        self.y += self.jump_height
+                        if self.y >= self.target_y + 30:  # When close to the original Y position
+                            self.moving = False
+                            self.returning = True  # Start returning
+                            self.target_y = None  # Reset target_y after reaching target position
+            elif not self.returning:
+                # Handle other movement actions (e.g., hammer, spin)
+                if abs(self.x - self.target_x) > 70:
+                    self.x += 5 if self.x < self.target_x else -5
+                else:
+                    self.moving = False
+                    self.returning = True
+                    self.target_x = None
+            else:
+                # Returning to the original position (x and y)
+                if abs(self.x - self.original_x) > 5:  # X axis tolerance
+                    self.x += 5 if self.x < self.original_x else -5
+                if abs(self.y - self.original_y) > 5:  # Y axis tolerance for return
+                    self.y += 5 if self.y < self.original_y else -5
+                else:
+                    self.moving = False
+                    self.x = self.original_x
+                    self.y = self.original_y  # Ensure Mario returns exactly to the original position
+
+            # Update rect position for both x and y movement
+            self.rect.center = (self.x, self.y)
+
+        # Handle animation frames update
+        self.image = self.animation_list[self.action][self.frame_index]
+        if pygame.time.get_ticks() - self.update_time > animation_cooldown:
+            self.update_time = pygame.time.get_ticks()
+            self.frame_index += 1
+
+        # Reset to idle if animation ends
+        if self.frame_index >= len(self.animation_list[self.action]):
+            if not self.moving:  # Only reset to idle when movement is finished
+                self.idle()
+                self.target_x = None  # Ensure target_x is reset after movement
+
+
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
+
+#Enemy class
+class Enemy():
+    def __init__(self, x, y, name, max_hp, strength,):
+        self.x = x
+        self.y = y
+        self.name = name
+        self.max_hp = max_hp
+        self.hp = max_hp
+        self.strength = strength
+        self.alive = True
+        self.animation_list = []
+        self.frame_index = 0
+        self.action = 0#0:idle, 1:attack, 2:hurt, 3:dead
+        self.update_time = pygame.time.get_ticks()
+        
+        #load images for idle
+        temp_list = []
+        for i in range (40):
+            image = pygame.image.load(f'images/Enemy/Idle/{i}.png')
+            image = pygame.transform.scale(image, (image.get_width() * 2.5, image.get_height() * 2.5))
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+
+        #load images for attack
+        temp_list = []
+        for i in range (35):
+            image = pygame.image.load(f'images/Enemy/Punch/{i}.png')
+            image = pygame.transform.scale(image, (image.get_width() * 2.5, image.get_height() * 2.5))
+            temp_list.append(image)
+        self.animation_list.append(temp_list)
+        self.image = self.animation_list[self.action][self.frame_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+
+    def update(self):
+        animation_cooldown = 50
+        #handle animation
+        #update image
+        self.image = self.animation_list[self.action][self.frame_index]
+        #check if enough time has passed since last update
+        if pygame.time.get_ticks() - self.update_time > animation_cooldown:
+            self.update_time = pygame.time.get_ticks()
+            self.frame_index += 1
+        #if the animation has run out then reset back to the start
+        if self.frame_index >= len(self.animation_list[self.action]):
+           self.idle()
+
+    def idle(self):
+        #set variables to idle animation
+        self.action = 0
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+
+    def attack(self, target):
+        #deal damage to enemy
+        rand = random.randint(-5, 5)
+        damage = self.strength + rand
+        target.hp -= damage
+        #check if target has died
+        if target.hp < 1:
+            target.hp = 0
+            target.alive = False
+        damage_text = DamageText(target.rect.centerx, target.rect.y, str(damage), red)
+        damage_text_group.add(damage_text)
+        #set variables to attack animation
+        self.action = 1
+        self.frame_index = 0
+        self.update_time = pygame.time.get_ticks()
+        
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
+class HealthBar():
+    def __init__(self, x, y, hp, max_hp):
+        self.x = x
+        self.y = y
+        self.hp = hp
+        self.max_hp = max_hp
+
+    def draw(self, hp):
+        #update with new health
+        self.hp = hp
+        #calculate health ratio
+        ratio = self.hp / self.max_hp
+        pygame.draw.rect(screen, red, (self.x, self.y, 150, 20))
+        pygame.draw.rect(screen, green, (self.x, self.y, 150 * ratio , 20))
+
+class DamageText(pygame.sprite.Sprite):
+    def __init__(self, x, y, damage, colour):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = font.render(damage, True, colour)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.counter = 0
+
+    def update(self):
+        #move damage text up
+        self.rect.y -= 1
+        #delete the text after a few seconds
+        self.counter += 1
+        if self.counter > 30:
+            self.kill()
+
+damage_text_group = pygame.sprite.Group()
+
+
+mario = Mario(450, 400, 'Mario', 100, 25, 10, 3, 3)
+enemy = Enemy(750, 375, 'Enemy', 150, 20)
+
+itemAni = itemUse(423,290)
+enemy_list = []
+enemy_list.append(enemy)
+
+mario_health_bar = HealthBar(100, 700, mario.hp, mario.max_hp)
+enemy_health_bar = HealthBar(700, 700, enemy.hp, enemy.max_hp)
+
+# Button settings
+jump_button_img = pygame.image.load('images/Buttons/jumpButton.png')  # Load button image
+jump_button_rect = jump_button_img.get_rect()
+
+hammer_button_img = pygame.image.load('images/Buttons/hammerButton.png')  # Load button image
+hammer_button_rect = hammer_button_img.get_rect()
+
+spin_button_img = pygame.image.load('images/Buttons/spinButton.png')  # Load button image
+spin_button_rect = spin_button_img.get_rect()
+
+fire_button_img = pygame.image.load('images/Buttons/fireButton.png')  # Load button image
+fire_button_rect = fire_button_img.get_rect()
+
+mush_button_img = pygame.image.load('images/Buttons/mushroomButton.png')  # Load button image
+mush_button_rect = mush_button_img.get_rect()
+
+syrup_button_img = pygame.image.load('images/Buttons/syrupButton.png')  # Load button image
+syrup_button_rect = syrup_button_img.get_rect()
+
+class Button():
+    def __init__(self, image, x, y):
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect)
+
+    def is_clicked(self, pos):
+        return self.rect.collidepoint(pos)
+
+# Create button instances
+jump_button = Button(jump_button_img, 400, 600)
+hammer_button = Button(hammer_button_img, 500, 600)
+spin_button = Button(spin_button_img, 400, 700)
+fire_button = Button(fire_button_img, 500, 700)
+mush_button = Button(mush_button_img, 600, 600)
+syrup_button = Button(syrup_button_img, 600, 700)
+
+target = None
+
+mixer.music.play(-1)
+
+run = True
+while run:
+    clock.tick(fps)
+
+    #draw background
+    draw_bg()
+
+    #draw panel
+    draw_panel()
+
+    #draw health bars
+    mario_health_bar.draw(mario.hp)
+    enemy_health_bar.draw(enemy.hp)
+
+    #draw Mario
+    mario.update()
+    mario.draw()
+
+    #draw Items
+    itemAni.update()
+    itemAni.draw()
+
+    #draw enemy
+    for enemy in enemy_list:
+        enemy.update()
+        enemy.draw()
+
+    #draw the damage text
+    damage_text_group.update()
+    damage_text_group.draw(screen)
+
+    #control player actions
+    #reset action variables
+    attack = False
+    jump = False
+    hammer = False
+    fire = False
+    spin = False
+    mushroom = False
+    syrup = False
+
+    #make sure mouse is visible
+    pygame.mouse.set_visible(True)
+    pos = pygame.mouse.get_pos()
+    for count, enemy in enumerate(enemy_list):
+        if enemy.rect.collidepoint(pos):
+            #hide mouse
+            pygame.mouse.set_visible(False)
+            #change mouse to fight icon
+            screen.blit(mouse_img, pos)
+            if clicked == True:
+                target = enemy_list[count]
+ 
+    # Inside the game loop
+    jump_button.draw(screen)
+    hammer_button.draw(screen)
+    spin_button.draw(screen)
+    fire_button.draw(screen)
+    mush_button.draw(screen)
+    syrup_button.draw(screen)
+    draw_text(str(mario.mushrooms), font, red, 475, 625)
+    draw_text(str(mario.syrups), font, red, 475, 675)
+
+    # Check for button clicks
+    for button in [jump_button, hammer_button, spin_button, fire_button, mush_button, syrup_button]:
+        if button.is_clicked(pos) and clicked:
+            # Handle button click actions
+            if button == jump_button:
+                jump = True
+                mario.action = 1
+                mario.frame_index = 0
+            elif button == hammer_button:
+                hammer = True
+                mario.action = 2
+                mario.frame_index = 0
+            elif button == spin_button:
+                spin = True
+                mario.action = 3
+                mario.frame_index = 0
+            elif button == fire_button:
+                fire = True
+                mario.action = 4
+                mario.frame_index = 0
+            elif button == mush_button:
+                mushroom = True
+                mario.action = 5
+                mario.frame_index = 0
+                itemAni = itemUse(421,302)
+                itemAni.action = 1
+                itemAni.frame_index = 0
+            elif button == syrup_button:
+                syrup = True
+                mario.action = 6
+                mario.frame_index = 0
+                itemAni.action = 2
+                itemAni.frame_index = 0
+    
+    original_x = mario.x
+    #player action
+    if mario.alive == True:
+        if current_fighter == 1:
+            action_cooldown +=1
+            if action_cooldown >= action_wait:
+                #look for player action
+                #attack
+                if jump == True and target != None:
+                    mario.jump(target)
+                    current_fighter += 1
+                    action_cooldown = 0
+                    target = None
+                if hammer == True and target != None:
+                    mario.hammer(target)
+                    current_fighter += 1
+                    action_cooldown = 0
+                    target = None
+                if spin == True and target != None:
+                    mario.spin(target)
+                    print(mario.x)  # Move Mario to enemy's position
+                    current_fighter += 1
+                    action_cooldown = 0
+                    target = None
+                    mario.fp -= 3
+                if fire == True and target != None:
+                    mario.fire(target)
+                    current_fighter += 1
+                    action_cooldown = 0
+                    target = None
+                    mario.fp -=3
+                
+                mario.x = original_x
+                #mushroom
+                if mushroom == True:
+                    if mario.mushrooms > 0:
+                        #check if mushroom heals beyond max health
+                        if mario.max_hp - mario.hp > mushroom_effect:
+                            heal_amount = mushroom_effect
+                            mario.hp += heal_amount
+                        else:
+                            heal_amount = mario.max_hp - mario.hp
+                        mario.hp += heal_amount
+                        mario.mushrooms -= 1
+                        damage_text = DamageText(mario.rect.centerx, mario.rect.y, str(heal_amount), green)
+                        damage_text_group.add(damage_text)
+                        current_fighter += 1
+                        action_cooldown = 0
+                if syrup == True:
+                    if mario.syrups > 0:
+                        #check if syrup heals beyond max fp
+                        if mario.max_fp - mario.fp > syrup_effect:
+                            fp_regen_amount = syrup_effect
+                            mario.fp += fp_regen_amount
+                        else:
+                            fp_regen_amount = mario.max_fp - mario.fp
+                        mario.fp += fp_regen_amount
+                        mario.syrups -= 1
+                        damage_text = DamageText(mario.rect.centerx, mario.rect.y, str(fp_regen_amount), green)
+                        damage_text_group.add(damage_text)
+                        current_fighter += 1
+                        action_cooldown = 0
+
+    #enemy action
+    for count, enemy in enumerate(enemy_list):
+        if current_fighter == 2 + count:
+            if enemy.alive == True:
+                action_cooldown +=1
+                if action_cooldown >= action_wait:
+                    #look for player action
+                    #attack
+                    enemy.attack(mario)
+                    current_fighter += 1
+                    action_cooldown = 0
+            else:
+                current_fighter +=1
+
+    #if all fighters have had a turn then reset
+    if current_fighter > total_fighters:
+        current_fighter = 1
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            run = False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            clicked = True
+        else:
+            clicked = False
+
+    pygame.display.update()
+
+pygame.quit()
