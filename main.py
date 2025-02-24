@@ -757,6 +757,7 @@ while run:
                 game_screen = "level2"
                 clicked = False
                 reset_level(enemy_list_lvl2)
+                again()
             elif back_to_menu_button.is_clicked(pos) and clicked:
                 game_screen = "menu"
                 clicked = False
@@ -895,6 +896,7 @@ while run:
                     game_screen = "level3"
                     clicked = False
                     reset_level(enemy_list_lvl3)
+                    again()
                 elif back_to_menu_button.is_clicked(pos) and clicked:
                     game_screen = "menu"
                     clicked = False
@@ -1035,6 +1037,7 @@ while run:
                 game_screen = "level4"
                 clicked = False
                 reset_level(enemy_list_lvl4)
+                again()
             elif back_to_menu_button.is_clicked(pos) and clicked:
                 game_screen = "menu"
                 clicked = False
@@ -1209,6 +1212,7 @@ while run:
                 game_screen = "level5"
                 clicked = False
                 reset_level(enemy_list_lvl5)
+                again()
             elif back_to_menu_button.is_clicked(pos) and clicked:
                 game_screen = "menu"
                 clicked = False
@@ -1389,6 +1393,7 @@ while run:
                 game_screen = "level6"
                 clicked = False
                 reset_level(enemy_list_lvl6)
+                again()
             elif back_to_menu_button.is_clicked(pos) and clicked:
                 game_screen = "menu"
                 clicked = False
